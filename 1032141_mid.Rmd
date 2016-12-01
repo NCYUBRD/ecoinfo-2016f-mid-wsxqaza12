@@ -1,0 +1,317 @@
+---
+title: "期中考"
+author: "黃琪婕"
+date: "2016年12月1日"
+output: html_document
+---
+#一. 請隨機產生 10000 組正整數儲存成 vector 格式，並輸出成 random10k.csv (5%)
+###使用sample產生10000組數列，並利用write.csv函式儲存
+```{R}
+setwd('~/Desktop/R/R_mid/')
+random10k <- sample(1:10000)
+write.csv(random10k, file = 'random10k.csv')
+
+```
+
+#二. 請使用 for 迴圈列出 15 個費布納西(Fibonacci)數列 (10%)
+```{R}
+fib <- function(n){
+  a <- integer(n)
+  a[1] <- 0
+  a[2] <- 1
+  a[3] <- 2
+  
+  if (n <= 3){
+      return(a[1:n])
+  }
+  else{
+    for (i in 4:n)
+    a[i] <- a[i-1] + a[i-2]
+    return(a)
+    }
+}
+
+print(fib(15))
+
+```
+
+#三. 請將 sample_data.txt 輸入進 R 內，並完成以下計算 (55%)
+```{R}
+library(data.table)
+sample_data <- fread('~/Desktop/R/R_mid/sample_data.txt',
+                     na.strings = c('-9991','-9995','-9996','-9997','-9998','-9999'))
+
+```
+
+###(a) 將 yyyymmddhh 轉成 POSIXct 時間戳記格式， 並新增為一個欄(variable)，命名為 timestamp。並將此 sample data 輸出為 sample_data_parsed.csv (以逗號分隔，具有欄位名稱)
+```{R}
+sample_data[, timestamp:=  as.POSIXct(strptime(yyyymmddhh-1,'%Y%m%d%H'))]
+write.csv(sample_data, file = 'sample_data_parsed.csv', sep = ',')
+
+```
+
+###(b) 請計算 2014 年至 2015 年這個測站的每月平均氣溫、每月平均濕度、每月累積降水， 並用表格呈現
+```{R}
+library(dplyr)
+sample_data[, year:= substr ((sample_data$yyyymmddhh), 3, 4)]
+sample_data[, month:= substr ((sample_data$yyyymmddhh), 5, 6)]
+sample_data[, day:= substr ((sample_data$yyyymmddhh), 7, 8)]
+sample_df <- dplyr::tbl_df(sample_data)
+
+ans<-
+  sample_df %>% group_by(month) %>%
+  summarise(月平均氣溫 = mean(TX01, na.rm = T),
+                  月平均濕度 = mean(RH01, na.rm = T),
+                  月累積降水 = sum(PP01, na.rm = T)/2) 
+
+ans_t <- t(as.data.frame(ans))
+ans_s <- data.frame(ans_t)[2:4,]
+
+a <- c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12")
+setnames(ans_s, a)
+
+print(ans_s)
+
+```
+
+###(c) 請計算 2014 年和 2015 年最冷月分別是在哪個月份？(提示：先計算月均溫)
+```{R}
+#整理出各年各月份的平均溫度
+monthtep <-
+  sample_df %>% group_by(year, month) %>%
+  summarise(月均溫 = mean(TX01, na.rm = T))
+
+cat("2014最冷月為1月\n", "2015最冷月為1月", sep = "")
+
+```
+
+###(d) 在 2015 年最冷的那個月份中，該月中每日的最低溫平均是幾度C？
+已知2015最冷月為1月，因此將201501中每日最低溫區出來做平均
+```{R}
+#先把各年各月每日的最熱與最冷溫度平均
+extreme_pem <-
+  sample_df %>% group_by(year, month, day) %>%
+  summarise(最冷 = min(TX01, na.rm = T), 最熱 = max(TX01, na.rm = T)) %>%
+  group_by(year, month) %>%
+  summarise(最冷平均 = mean(最冷, na.rm = T), 最熱平均 = mean(最熱, na.rm = T))
+
+#看結果發現最冷月的每月最低溫平均也是全年最低的，熱月也是，因此很簡單地將它們提出
+find <- 
+  extreme_pem %>% group_by(year) %>%
+  summarise(最冷月最低溫 = min(最冷平均), 最熱月最高溫 = max(最熱平均))
+
+#設定小數點位數
+options(digits = 4)
+cat("2015年最冷月為1月份，\n",
+    "而其每日的最低溫平均為：", as.numeric(find[2, 2]), sep = "")
+```
+
+###(e) 請計算 2014 年和 2015 年中，最熱的月分別是在哪個月份？
+由(c)的monthtep可以看出，2014的最熱月為7月，2015的最熱月為6月
+```{R}
+cat("2014最熱月為7月\n", "2015最熱月為6月", sep = "")
+
+```
+
+###(f) 請計算 2014 年最熱的月份中，該月的每日最高溫平均為幾度C?
+已在(d)題中extreme_pem算好了
+```{R}
+cat("2014年最熱月為7月份，\n",
+    "而其每日的最高溫平均為：", as.numeric(find[1, 3]), sep = "")
+
+```
+
+###(g) 請算出 2014 至 2015 年中，最濕月份的平均溫度
+```{R}
+#將各年各月的平均濕度算出
+moisture <-
+  sample_df %>% group_by(year, month) %>%
+  summarise(濕度平均 = mean(RH01, na.rm = T))
+#找出最濕月份為2014 - 09
+
+ym_tem <- 
+  sample_df %>% group_by(year, month) %>%
+  summarise(溫度平均 = mean(TX01, na.rm = T))
+
+filter(ym_tem, year == "14" & month == "09")
+cat("2年中最濕的月份為2014-09，\n",
+    "而其平均溫度為：28.76", sep = "")
+```
+
+###(h) 請計算每個月的月溫差(每月最高溫減去每月最高溫，取兩年平均)，平均月溫差最大的是哪個月？
+```{R}
+#將每日平均溫度算出
+mon_tem_dif <-
+  sample_df %>% group_by(year, month, day) %>%
+  summarise(平均溫度 = mean(TX01, na.rm = T)) %>%
+  group_by(year, month) %>%
+  summarise(最冷天 = min(平均溫度), 最熱天 = max(平均溫度)) %>%
+  mutate(月溫差 = 最熱天-最冷天) %>%
+  arrange(desc(月溫差))
+
+cat("平均月溫差最大的月份為20", as.numeric(mon_tem_dif[1, 1]), "年",
+    as.numeric(mon_tem_dif[1, 2]), "月", sep = "")
+cat("相差", as.numeric(mon_tem_dif[1, 5]), sep = "")
+```
+
+###(i) 請計算這兩年的年溫差平均(每年最高溫減去最低溫)
+```{R}
+#利用(c)的monthtep所算出的各年各月平均溫度
+year_tem_dif <-
+  monthtep %>% group_by(year) %>%
+  summarise(最冷月 = min(月均溫), 最熱月 = max(月均溫)) %>%
+  mutate(年溫差 = 最熱月-最冷月) %>%
+  summarise(年溫差平均 = mean(年溫差))
+
+cat("這兩年的年溫差平均為：", as.numeric(year_tem_dif[1,1]), sep = "")
+
+```
+
+###(j) 溫量指數(warmth index)是 Kira (1945) 提出的一個生態氣候指標，其計算方式為:
+(1) 若該月均溫高於 5 ºC，則將該月份的月均溫減去 5 ºC。
+(2) 若該月均溫低於或等於 5 ºC，則令其為 0 ºC
+(3) 將所有減去 5 ºC 或當成 0 ºC 的月均溫相加起來得到的數據稱為「溫量指數」
+
+####請根據 (b) 所計算出的數值，算出 2014 至 2015 年的溫量指數。
+利用ans這個還未倒置的資料來運算
+```{R}
+tem_index <-
+ans %>% 
+  mutate(溫量 = if (月平均氣溫 > 5) {
+    月平均氣溫-5
+    }else 月平均氣溫 *0
+    )  %>%
+  
+  summarise(溫量指數 = sum(溫量))
+
+options(digits = 5)
+cat("2014 至 2015 年的溫量指數為", as.numeric(tem_index[1,1]))
+
+```
+
+###(k) 請使用 climatol package 繪製 2014 至 2015 的生態氣候圖(Ecological climate diagrams)。 提示：你需要計算出每個月的累積降水平均、每日最高溫平均、每日最低溫平均、每月絕對最低溫。 可參考繪製生態氣候圖
+
+#四. 請計算 Table 2 中的下列各子題 (30%)
+
+###(a) 請計算各島環境因子(total_cover, C, EC, ..., etc.) 的平均、 第一四分位數、中位數、第三四分位數、最大值及最小值以及標準差
+```{R}
+penghu <- fread('~/Desktop/R/R_mid/penghu_env.csv')
+penghu_df <- tbl_df(penghu)
+
+Q1 <- function(x){
+  return(quantile(x, 0.25, na.rm = T))
+}
+
+Q3 <- function(x){
+  return(quantile(x, 0.75, na.rm = T))
+}
+
+average <-
+  penghu %>% select(-plotid) %>% 
+  group_by(island) %>%
+  summarise_all(funs(mean), na.rm = T) 
+
+mean <-
+  penghu %>% select(-plotid) %>% 
+  group_by(island) %>%
+  summarise_all(funs(median), na.rm = T)
+
+max <-
+  penghu %>% select(-plotid) %>% 
+  group_by(island) %>%
+  summarise_all(funs(max), na.rm = T)
+
+min <-
+  penghu %>% select(-plotid) %>% 
+  group_by(island) %>%
+  summarise_all(funs(min), na.rm = T)
+
+sd <- 
+  penghu %>% select(-plotid) %>% 
+  group_by(island) %>%
+  summarise_all(funs(sd), na.rm = T)
+
+Q1_nu <- 
+  penghu %>% select(-plotid) %>% 
+  group_by(island) %>%
+  summarise_all(funs(Q1))
+
+Q3_nu <- 
+  penghu %>% select(-plotid) %>% 
+  group_by(island) %>%
+  summarise_all(funs(Q3))
+
+##想辦法將欄位名稱合併
+A <- as.data.frame(average[,1])
+B <- c("total_cover", "C", "EC", "K", "Na" ,"N","rock_ratio")
+
+mk_rowname  <- data_frame()
+X <- 1
+Y <- 1
+i <- 1
+while (Y <= 7 ) {
+  mk_rowname[i,1] <- paste(A[X,1], B[Y])
+  X <- X+1
+  if (X > 5) {
+    X <-1
+    Y <-Y+1
+  }
+  print(X)
+  i <- i+1
+}
+
+#將整理好的資料丟進mk_rowname裡
+X <- 1
+Y <- 2
+i <- 1
+while (i <= 35) {
+  mk_rowname[i, 2] <- average[X, Y]
+  mk_rowname[i, 3] <- Q1_nu[X, Y]
+  mk_rowname[i, 4] <- mean[X, Y]
+  mk_rowname[i, 5] <- Q3_nu[X, Y]
+  mk_rowname[i, 6] <- max[X, Y]
+  mk_rowname[i, 7] <- min[X, Y]
+  mk_rowname[i, 8] <- sd[X, Y]
+  
+  X <- X+1
+  if (X > 5) {
+    X <-1
+    Y <-Y+1
+  }
+  i <- i+1
+  print(X)
+}
+
+#更改欄位名稱
+mk_col <- c("", "average", "1st Qua.", "Mid", "3st Qua.", "Max", "Min", "Sd" )
+setnames(mk_rowname, mk_col)
+```
+
+###(b) 請分別列出 C, EC, K, Na, N 最高的五個樣區(plotid)
+```{R}
+max_C <-
+  penghu_df %>% select(plotid, C) %>%
+  arrange(desc(C))
+
+max_EC <-
+  penghu_df %>% select(plotid, EC) %>%
+  arrange(desc(EC))
+
+max_K <-
+  penghu_df %>% select(plotid, K) %>%
+  arrange(desc(K))
+
+max_Na <-
+  penghu_df %>% select(plotid, Na) %>%
+  arrange(desc(Na))
+
+max_N <-
+  penghu_df %>% select(plotid, N) %>%
+  arrange(desc(N))
+
+print(as.character(max_C[1,1]))
+print(as.character(max_EC[1,1]))
+print(as.character(max_K[1,1]))
+print(as.character(max_Na[1,1]))
+print(as.character(max_N[1,1]))
+```
