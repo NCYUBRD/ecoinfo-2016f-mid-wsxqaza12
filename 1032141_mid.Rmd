@@ -53,20 +53,25 @@ write.csv(sample_data, file = 'sample_data_parsed.csv', sep = ',')
 ###(b) 請計算 2014 年至 2015 年這個測站的每月平均氣溫、每月平均濕度、每月累積降水， 並用表格呈現
 ```{R}
 library(dplyr)
+#新增年月日方便索引（下次換用mutata）
 sample_data[, year:= substr ((sample_data$yyyymmddhh), 3, 4)]
 sample_data[, month:= substr ((sample_data$yyyymmddhh), 5, 6)]
 sample_data[, day:= substr ((sample_data$yyyymmddhh), 7, 8)]
 sample_df <- dplyr::tbl_df(sample_data)
 
+#利用dplyr的運算
 ans<-
   sample_df %>% group_by(month) %>%
   summarise(月平均氣溫 = mean(TX01, na.rm = T),
                   月平均濕度 = mean(RH01, na.rm = T),
                   月累積降水 = sum(PP01, na.rm = T)/2) 
 
+#將其轉置
 ans_t <- t(as.data.frame(ans))
+#省略掉第一列
 ans_s <- data.frame(ans_t)[2:4,]
 
+#耕改欄位名稱
 a <- c("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12")
 setnames(ans_s, a)
 
@@ -129,10 +134,12 @@ moisture <-
   summarise(濕度平均 = mean(RH01, na.rm = T))
 #找出最濕月份為2014 - 09
 
+#算出各年各月的平均溫度
 ym_tem <- 
   sample_df %>% group_by(year, month) %>%
   summarise(溫度平均 = mean(TX01, na.rm = T))
 
+#找出最濕月的平均溫度
 filter(ym_tem, year == "14" & month == "09")
 cat("2年中最濕的月份為2014-09，\n",
     "而其平均溫度為：28.76", sep = "")
@@ -191,6 +198,10 @@ cat("2014 至 2015 年的溫量指數為", as.numeric(tem_index[1,1]))
 
 ###(k) 請使用 climatol package 繪製 2014 至 2015 的生態氣候圖(Ecological climate diagrams)。 提示：你需要計算出每個月的累積降水平均、每日最高溫平均、每日最低溫平均、每月絕對最低溫。 可參考繪製生態氣候圖
 
+```{R}
+install.packages(climatol)
+#找不到packages
+```
 #四. 請計算 Table 2 中的下列各子題 (30%)
 
 ###(a) 請計算各島環境因子(total_cover, C, EC, ..., etc.) 的平均、 第一四分位數、中位數、第三四分位數、最大值及最小值以及標準差
@@ -198,19 +209,23 @@ cat("2014 至 2015 年的溫量指數為", as.numeric(tem_index[1,1]))
 penghu <- fread('~/Desktop/R/R_mid/penghu_env.csv')
 penghu_df <- tbl_df(penghu)
 
+#設定第一四分位函數
 Q1 <- function(x){
   return(quantile(x, 0.25, na.rm = T))
 }
 
+#設定第二四分位函數
 Q3 <- function(x){
   return(quantile(x, 0.75, na.rm = T))
 }
 
+#求平均
 average <-
   penghu %>% select(-plotid) %>% 
   group_by(island) %>%
   summarise_all(funs(mean), na.rm = T) 
 
+#求中位
 mean <-
   penghu %>% select(-plotid) %>% 
   group_by(island) %>%
@@ -285,10 +300,13 @@ while (i <= 35) {
 #更改欄位名稱
 mk_col <- c("", "average", "1st Qua.", "Mid", "3st Qua.", "Max", "Min", "Sd" )
 setnames(mk_rowname, mk_col)
+
+print(mk_rowname)
 ```
 
 ###(b) 請分別列出 C, EC, K, Na, N 最高的五個樣區(plotid)
 ```{R}
+#直接利用排序找出最大值
 max_C <-
   penghu_df %>% select(plotid, C) %>%
   arrange(desc(C))
@@ -309,6 +327,7 @@ max_N <-
   penghu_df %>% select(plotid, N) %>%
   arrange(desc(N))
 
+#輸出
 print(as.character(max_C[1,1]))
 print(as.character(max_EC[1,1]))
 print(as.character(max_K[1,1]))
